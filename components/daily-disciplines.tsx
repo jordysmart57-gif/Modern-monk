@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { defaultDailyRhythm, disciplineGuidance } from "@/src/lib/ruleOfLife";
+import {
+  defaultDailyRhythm,
+  disciplineGuidance,
+  scriptureStudySuggestions
+} from "@/src/lib/ruleOfLife";
 import { supabase } from "@/src/lib/supabaseClient";
 
 type DisciplineRow = {
@@ -32,6 +36,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
   const [savedRows, setSavedRows] = useState<Record<string, DisciplineRow>>({});
   const [dailyDisciplines, setDailyDisciplines] = useState(defaultDailyRhythm);
   const [selectedDiscipline, setSelectedDiscipline] = useState(defaultDailyRhythm[0]);
+  const [scriptureSuggestion, setScriptureSuggestion] = useState(scriptureStudySuggestions[0]);
   const [user, setUser] = useState<User | null>(null);
   const [statusMessage, setStatusMessage] = useState("Loading today's disciplines...");
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
@@ -43,6 +48,23 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
   );
   const completionPercent = Math.round((completedCount / dailyDisciplines.length) * 100);
   const selectedGuidance = disciplineGuidance[selectedDiscipline] ?? disciplineGuidance[defaultDailyRhythm[0]];
+
+  useEffect(() => {
+    function chooseHourlyScripture() {
+      const currentHour = new Date().getHours();
+      const suggestionIndex = currentHour % scriptureStudySuggestions.length;
+
+      setScriptureSuggestion(scriptureStudySuggestions[suggestionIndex]);
+    }
+
+    // useEffect runs code after React draws the page.
+    // This one chooses a Scripture suggestion from the current hour, then checks again each minute.
+    chooseHourlyScripture();
+    const timerId = window.setInterval(chooseHourlyScripture, 60 * 1000);
+
+    // Returning a cleanup function keeps the interval from running after this component leaves the screen.
+    return () => window.clearInterval(timerId);
+  }, []);
 
   useEffect(() => {
     async function loadTodayDisciplines() {
@@ -276,19 +298,20 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
             {selectedGuidance.practice}
           </p>
 
-          <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">Recommended Scripture</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {selectedGuidance.scriptures.map((scripture) => (
-                <span
-                  key={scripture}
-                  className="rounded-full border border-moss/15 bg-moss/10 px-3 py-1 text-xs font-semibold text-moss"
-                >
-                  {scripture}
+          {selectedDiscipline === "Scripture" ? (
+            <div className="mt-4 rounded-2xl border border-moss/15 bg-moss/10 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">
+                  Scripture study suggestion
+                </p>
+                <span className="rounded-full border border-moss/15 bg-vellum/60 px-2 py-1 text-[11px] font-semibold text-moss">
+                  Changes hourly
                 </span>
-              ))}
+              </div>
+              <p className="mt-3 font-serif text-2xl text-ink">{scriptureSuggestion.passage}</p>
+              <p className="mt-2 text-sm leading-6 text-ink/70">{scriptureSuggestion.focus}</p>
             </div>
-          </div>
+          ) : null}
         </div>
       ) : null}
 
