@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { defaultDailyRhythm } from "@/src/lib/ruleOfLife";
 import { supabase } from "@/src/lib/supabaseClient";
-
-const totalDailyDisciplines = 6;
 
 type WeeklyProgressProps = {
   refreshKey: number;
@@ -40,6 +39,7 @@ function getWeekDays() {
 export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
   const weekDays = useMemo(() => getWeekDays(), []);
   const [completedByDate, setCompletedByDate] = useState<Record<string, number>>({});
+  const [dailyRhythm, setDailyRhythm] = useState(defaultDailyRhythm);
   const [statusMessage, setStatusMessage] = useState("Loading weekly progress...");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -69,10 +69,28 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
 
       setIsLoggedIn(true);
 
+      const { data: preferences, error: preferencesError } = await supabase
+        .from("rule_of_life_preferences")
+        .select("disciplines")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (preferencesError) {
+        setStatusMessage(preferencesError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      const chosenDisciplines = preferences?.disciplines?.length
+        ? preferences.disciplines
+        : defaultDailyRhythm;
+
+      setDailyRhythm(chosenDisciplines);
+
       // This asks Supabase for all saved discipline rows from the last 7 days.
       const { data, error } = await supabase
         .from("disciplines")
-        .select("completed, completed_date")
+        .select("name, completed, completed_date")
         .eq("user_id", user.id)
         .gte("completed_date", weekDays[0].date)
         .lte("completed_date", weekDays[weekDays.length - 1].date);
@@ -85,8 +103,8 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
 
       const nextCompletedByDate: Record<string, number> = {};
 
-      for (const row of (data ?? []) as DisciplineProgressRow[]) {
-        if (row.completed) {
+      for (const row of (data ?? []) as Array<DisciplineProgressRow & { name: string }>) {
+        if (row.completed && chosenDisciplines.includes(row.name)) {
           nextCompletedByDate[row.completed_date] = (nextCompletedByDate[row.completed_date] ?? 0) + 1;
         }
       }
@@ -100,7 +118,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
   }, [refreshKey, weekDays]);
 
   const weeklyCompleted = weekDays.reduce((total, day) => total + (completedByDate[day.date] ?? 0), 0);
-  const weeklyPossible = weekDays.length * totalDailyDisciplines;
+  const weeklyPossible = weekDays.length * dailyRhythm.length;
 
   return (
     <div className="soft-card">
@@ -108,7 +126,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
         <div>
           <h2 className="font-serif text-3xl text-ink">Weekly progress</h2>
           <p className="mt-1 text-sm text-ink/60">
-            {isLoading ? "Loading your rhythm..." : "Disciplines completed over the last 7 days."}
+            {isLoading ? "Loading your rhythm..." : "Your selected disciplines over the last 7 days."}
           </p>
         </div>
         {isLoading ? (
@@ -123,7 +141,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
       <div className="mt-6 flex h-40 items-end gap-2">
         {weekDays.map((day) => {
           const completed = completedByDate[day.date] ?? 0;
-          const height = isLoading ? 18 : Math.max(8, (completed / totalDailyDisciplines) * 100);
+          const height = isLoading ? 18 : Math.max(8, (completed / Math.max(dailyRhythm.length, 1)) * 100);
 
           return (
             <div key={day.date} className="flex flex-1 flex-col items-center gap-2">

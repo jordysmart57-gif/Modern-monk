@@ -15,8 +15,16 @@ create table if not exists journal_entries (
   created_at timestamp with time zone default now()
 );
 
+create table if not exists rule_of_life_preferences (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  disciplines text[] not null default '{}',
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
 alter table disciplines enable row level security;
 alter table journal_entries enable row level security;
+alter table rule_of_life_preferences enable row level security;
 
 drop policy if exists "Users can read their own disciplines" on disciplines;
 create policy "Users can read their own disciplines"
@@ -52,6 +60,25 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can update their own journal entries" on journal_entries;
 create policy "Users can update their own journal entries"
 on journal_entries for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read their own rule of life" on rule_of_life_preferences;
+create policy "Users can read their own rule of life"
+on rule_of_life_preferences for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own rule of life" on rule_of_life_preferences;
+create policy "Users can insert their own rule of life"
+on rule_of_life_preferences for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own rule of life" on rule_of_life_preferences;
+create policy "Users can update their own rule of life"
+on rule_of_life_preferences for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);

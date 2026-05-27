@@ -3,16 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { defaultDailyRhythm } from "@/src/lib/ruleOfLife";
 import { supabase } from "@/src/lib/supabaseClient";
-
-const dailyDisciplines = [
-  "Pray for 10 minutes",
-  "Read Scripture",
-  "Practice 5 minutes of silence",
-  "Journal one reflection",
-  "Practice gratitude",
-  "Avoid one distraction"
-];
 
 type DisciplineRow = {
   id: string;
@@ -38,6 +30,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
   // Here it remembers which disciplines are checked for today.
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [savedRows, setSavedRows] = useState<Record<string, DisciplineRow>>({});
+  const [dailyDisciplines, setDailyDisciplines] = useState(defaultDailyRhythm);
   const [user, setUser] = useState<User | null>(null);
   const [statusMessage, setStatusMessage] = useState("Loading today's disciplines...");
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
@@ -73,6 +66,25 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
 
       setUser(currentUser);
 
+      const { data: preferences, error: preferencesError } = await supabase
+        .from("rule_of_life_preferences")
+        .select("disciplines")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (preferencesError) {
+        setStatusMessage(preferencesError.message);
+        setStatusTone("error");
+        setIsLoading(false);
+        return;
+      }
+
+      const chosenDisciplines = preferences?.disciplines?.length
+        ? preferences.disciplines
+        : defaultDailyRhythm;
+
+      setDailyDisciplines(chosenDisciplines);
+
       // Then we load only this user's rows for today's date.
       const { data, error } = await supabase
         .from("disciplines")
@@ -91,13 +103,15 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
       const nextSavedRows: Record<string, DisciplineRow> = {};
 
       for (const row of data ?? []) {
-        nextCheckedItems[row.name] = row.completed;
-        nextSavedRows[row.name] = row;
+        if (chosenDisciplines.includes(row.name)) {
+          nextCheckedItems[row.name] = row.completed;
+          nextSavedRows[row.name] = row;
+        }
       }
 
       setCheckedItems(nextCheckedItems);
       setSavedRows(nextSavedRows);
-      setStatusMessage("Today's disciplines loaded.");
+      setStatusMessage("Today's rule of life loaded.");
       setStatusTone("success");
       setIsLoading(false);
     }

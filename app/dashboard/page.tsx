@@ -11,6 +11,12 @@ export default function DashboardPage() {
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href="/rule-of-life"
+              className="rounded-full border border-ink/10 bg-vellum px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-clay transition hover:border-clay/50"
+            >
+              Setup
+            </Link>
+            <Link
               href="/login"
               className="rounded-full border border-ink/10 bg-vellum px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-clay transition hover:border-clay/50"
             >
