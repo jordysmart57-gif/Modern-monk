@@ -29,7 +29,11 @@ function getTodayDate() {
   return `${year}-${month}-${day}`;
 }
 
-export default function DailyDisciplines() {
+type DailyDisciplinesProps = {
+  onSaved?: () => void;
+};
+
+export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
   // React state is memory for this component while the page is open.
   // Here it remembers which disciplines are checked for today.
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
@@ -158,6 +162,7 @@ export default function DailyDisciplines() {
 
     setStatusMessage("Saved to Supabase.");
     setStatusTone("success");
+    onSaved?.();
   }
 
   return (
