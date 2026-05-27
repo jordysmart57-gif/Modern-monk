@@ -29,12 +29,12 @@ export default function DashboardPage() {
         </nav>
 
         <section className="py-7 sm:py-9">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-moss">Daily office</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-moss">Ordinary day</p>
           <div className="mt-3 max-w-3xl">
             <div>
-              <h1 className="font-serif text-4xl leading-[1.05] text-ink sm:text-5xl">Today&apos;s disciplines</h1>
+              <h1 className="font-serif text-4xl leading-[1.05] text-ink sm:text-5xl">Today&apos;s rhythm</h1>
               <p className="mt-3 max-w-2xl leading-7 text-ink/70">
-                Begin small. Mark what you practice, sit in silence, and write one honest note from the day.
+                Receive what belongs to today. Practice gently, leave room for quiet, and write what you notice.
               </p>
             </div>
           </div>

@@ -12,6 +12,73 @@ export const ruleOfLifeDisciplines = [
 
 export const defaultDailyRhythm = ["Prayer", "Scripture", "Silence", "Gratitude"];
 
+export const weekDays = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday"
+] as const;
+
+export type WeekDay = (typeof weekDays)[number];
+export type RuleFrequency = "daily" | "weekly" | "monthly" | "seasonal";
+
+export type RuleOfLifePractice = {
+  discipline: string;
+  frequency: RuleFrequency;
+  days: WeekDay[];
+  intention: string;
+};
+
+export const frequencyLabels: Record<RuleFrequency, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  seasonal: "Seasonal"
+};
+
+export const frequencyDescriptions: Record<RuleFrequency, string> = {
+  daily: "A small anchor for ordinary days.",
+  weekly: "A rhythm that needs a little more room.",
+  monthly: "A slower practice for remembering and returning.",
+  seasonal: "A practice for this season, held lightly."
+};
+
+export const defaultRuleOfLifePractices: RuleOfLifePractice[] = [
+  {
+    discipline: "Prayer",
+    frequency: "daily",
+    days: [],
+    intention: "Begin and end the day with God."
+  },
+  {
+    discipline: "Scripture",
+    frequency: "daily",
+    days: [],
+    intention: "Read slowly enough to listen."
+  },
+  {
+    discipline: "Silence",
+    frequency: "daily",
+    days: [],
+    intention: "Make a few quiet minutes before God."
+  },
+  {
+    discipline: "Fasting",
+    frequency: "weekly",
+    days: ["Wednesday"],
+    intention: "Fast from food gently and pray when hunger rises."
+  },
+  {
+    discipline: "Sabbath",
+    frequency: "weekly",
+    days: ["Sunday"],
+    intention: "Stop producing and receive the day."
+  }
+];
+
 export type DisciplineGuidance = {
   description: string;
   practice: string;
@@ -106,3 +173,96 @@ export const scriptureStudySuggestions = [
     focus: "Pray Paul's words slowly for yourself."
   }
 ];
+
+export function createPracticeFromDiscipline(discipline: string): RuleOfLifePractice {
+  if (discipline === "Fasting") {
+    return {
+      discipline,
+      frequency: "weekly",
+      days: ["Wednesday"],
+      intention: "Fast from food gently and pray when hunger rises."
+    };
+  }
+
+  if (discipline === "Sabbath") {
+    return {
+      discipline,
+      frequency: "weekly",
+      days: ["Sunday"],
+      intention: "Stop producing and receive the day."
+    };
+  }
+
+  if (discipline === "Solitude" || discipline === "Service") {
+    return {
+      discipline,
+      frequency: "weekly",
+      days: ["Friday"],
+      intention: "Make space for this practice without hurry."
+    };
+  }
+
+  return {
+    discipline,
+    frequency: "daily",
+    days: [],
+    intention: "Practice this gently in ordinary life."
+  };
+}
+
+export function normalizeRuleOfLifePractices(
+  practices?: RuleOfLifePractice[] | null,
+  oldDisciplines?: string[] | null
+) {
+  if (Array.isArray(practices) && practices.length > 0) {
+    return practices;
+  }
+
+  if (Array.isArray(oldDisciplines) && oldDisciplines.length > 0) {
+    return oldDisciplines.map((discipline) => createPracticeFromDiscipline(discipline));
+  }
+
+  return defaultRuleOfLifePractices;
+}
+
+export function getTodayWeekDay(date = new Date()): WeekDay {
+  return weekDays[date.getDay()];
+}
+
+export function practiceBelongsToday(practice: RuleOfLifePractice, date = new Date()) {
+  const today = getTodayWeekDay(date);
+
+  if (practice.frequency === "daily") {
+    return true;
+  }
+
+  if (practice.frequency === "weekly") {
+    return practice.days.includes(today);
+  }
+
+  if (practice.frequency === "monthly") {
+    return date.getDate() <= 7 && practice.days.includes(today);
+  }
+
+  return false;
+}
+
+export function getTodaysRulePractices(practices: RuleOfLifePractice[], date = new Date()) {
+  return practices.filter((practice) => practiceBelongsToday(practice, date));
+}
+
+export function getUpcomingRulePractices(practices: RuleOfLifePractice[], date = new Date()) {
+  const today = getTodayWeekDay(date);
+
+  return practices.filter((practice) => {
+    if (practice.frequency === "daily") {
+      return false;
+    }
+
+    if (practice.frequency === "seasonal") {
+      return true;
+    }
+
+    return !practice.days.includes(today);
+  });
+}

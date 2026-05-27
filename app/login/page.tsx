@@ -92,7 +92,7 @@ export default function LoginPage() {
             </h1>
             <p className="mt-5 max-w-md leading-7 text-ink/70">
               Use email and password for now. Later, this account will connect your disciplines,
-              journal entries, and weekly progress to Supabase.
+              journal entries, and weekly rhythm to Supabase.
             </p>
           </div>
 

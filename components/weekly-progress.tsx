@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { defaultDailyRhythm } from "@/src/lib/ruleOfLife";
+import {
+  getTodaysRulePractices,
+  normalizeRuleOfLifePractices
+} from "@/src/lib/ruleOfLife";
 import { supabase } from "@/src/lib/supabaseClient";
 
 type WeeklyProgressProps = {
@@ -39,15 +42,15 @@ function getWeekDays() {
 export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
   const weekDays = useMemo(() => getWeekDays(), []);
   const [completedByDate, setCompletedByDate] = useState<Record<string, number>>({});
-  const [dailyRhythm, setDailyRhythm] = useState(defaultDailyRhythm);
-  const [statusMessage, setStatusMessage] = useState("Loading weekly progress...");
+  const [scheduledByDate, setScheduledByDate] = useState<Record<string, number>>({});
+  const [statusMessage, setStatusMessage] = useState("Loading this week's rhythm...");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     async function loadWeeklyProgress() {
       if (!supabase) {
-        setStatusMessage("Add Supabase keys before loading weekly progress.");
+        setStatusMessage("Add Supabase keys before loading this week's rhythm.");
         setIsLoading(false);
         return;
       }
@@ -62,7 +65,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
 
       if (userError || !user) {
         setIsLoggedIn(false);
-        setStatusMessage("Log in to see your weekly progress.");
+        setStatusMessage("Log in to see this week's rhythm.");
         setIsLoading(false);
         return;
       }
@@ -71,7 +74,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
 
       const { data: preferences, error: preferencesError } = await supabase
         .from("rule_of_life_preferences")
-        .select("disciplines")
+        .select("disciplines, practices")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -81,11 +84,17 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
         return;
       }
 
-      const chosenDisciplines = preferences?.disciplines?.length
-        ? preferences.disciplines
-        : defaultDailyRhythm;
+      const chosenPractices = normalizeRuleOfLifePractices(preferences?.practices, preferences?.disciplines);
+      const chosenDisciplines = chosenPractices.map((practice) => practice.discipline);
 
-      setDailyRhythm(chosenDisciplines);
+      setScheduledByDate(
+        Object.fromEntries(
+          weekDays.map((day) => [
+            day.date,
+            getTodaysRulePractices(chosenPractices, new Date(`${day.date}T12:00:00`)).length
+          ])
+        )
+      );
 
       // This asks Supabase for all saved discipline rows from the last 7 days.
       const { data, error } = await supabase
@@ -96,7 +105,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
         .lte("completed_date", weekDays[weekDays.length - 1].date);
 
       if (error) {
-        setStatusMessage("Could not load weekly progress. Please refresh and try again.");
+        setStatusMessage("Could not load this week's rhythm. Please refresh and try again.");
         setIsLoading(false);
         return;
       }
@@ -110,30 +119,29 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
       }
 
       setCompletedByDate(nextCompletedByDate);
-      setStatusMessage("Weekly progress loaded.");
+      setStatusMessage("This week's rhythm loaded.");
       setIsLoading(false);
     }
 
     loadWeeklyProgress();
   }, [refreshKey, weekDays]);
 
-  const weeklyCompleted = weekDays.reduce((total, day) => total + (completedByDate[day.date] ?? 0), 0);
-  const weeklyPossible = weekDays.length * dailyRhythm.length;
+  const weeklyPracticed = weekDays.reduce((total, day) => total + (completedByDate[day.date] ?? 0), 0);
 
   return (
     <div className="soft-card">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl text-ink">Weekly progress</h2>
+          <h2 className="font-serif text-3xl text-ink">This week&apos;s rhythm</h2>
           <p className="mt-1 text-sm text-ink/60">
-            {isLoading ? "Loading your rhythm..." : "Your selected disciplines over the last 7 days."}
+            {isLoading ? "Loading your rhythm..." : "A quiet look at what appeared this week."}
           </p>
         </div>
         {isLoading ? (
           <span className="loading-line h-7 w-16" />
         ) : (
           <p className="rounded-full bg-moss/10 px-3 py-1 text-xs font-semibold text-moss">
-            {weeklyCompleted}/{weeklyPossible}
+            {weeklyPracticed} noted
           </p>
         )}
       </div>
@@ -141,7 +149,8 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
       <div className="mt-6 flex h-40 items-end gap-2">
         {weekDays.map((day) => {
           const completed = completedByDate[day.date] ?? 0;
-          const height = isLoading ? 18 : Math.max(8, (completed / Math.max(dailyRhythm.length, 1)) * 100);
+          const scheduled = scheduledByDate[day.date] ?? 0;
+          const height = isLoading ? 18 : Math.min(100, Math.max(8, (completed / Math.max(scheduled, 1)) * 100));
 
           return (
             <div key={day.date} className="flex flex-1 flex-col items-center gap-2">
@@ -149,14 +158,19 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
                 <div
                   className={`w-full rounded-full transition-all ${isLoading ? "loading-line" : "bg-clay"}`}
                   style={{ height: `${height}%` }}
-                  aria-label={`${day.label}: ${completed} disciplines`}
+                  aria-label={`${day.label}: ${completed} practices noticed`}
                 />
               </div>
               <span className="text-xs font-semibold text-ink/50">{day.label}</span>
+              <span className="text-[11px] text-ink/40">{scheduled}</span>
             </div>
           );
         })}
       </div>
+
+      <p className="mt-3 text-xs leading-5 text-ink/45">
+        Small numbers under the days show what was invited by your rule of life, not what you owed.
+      </p>
 
       <div className="mt-4 rounded-2xl border border-ink/10 bg-white/40 px-4 py-3 text-xs leading-5 text-ink/50">
         {isLoggedIn ? (

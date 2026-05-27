@@ -18,6 +18,7 @@ create table if not exists journal_entries (
 create table if not exists rule_of_life_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
   disciplines text[] not null default '{}',
+  practices jsonb not null default '[]'::jsonb,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
@@ -35,6 +36,9 @@ alter table disciplines enable row level security;
 alter table journal_entries enable row level security;
 alter table rule_of_life_preferences enable row level security;
 alter table practice_entries enable row level security;
+
+alter table rule_of_life_preferences
+add column if not exists practices jsonb not null default '[]'::jsonb;
 
 create index if not exists disciplines_user_date_idx
 on disciplines (user_id, completed_date);
