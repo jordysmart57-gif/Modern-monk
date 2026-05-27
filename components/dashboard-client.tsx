@@ -3,6 +3,7 @@
 import { useState } from "react";
 import DailyDisciplines from "@/components/daily-disciplines";
 import JournalEntry from "@/components/journal-entry";
+import RecentPracticeEntries from "@/components/practices/RecentPracticeEntries";
 import SilenceTimer from "@/components/silence-timer";
 import WeeklyProgress from "@/components/weekly-progress";
 
@@ -18,6 +19,7 @@ export default function DashboardClient() {
 
       <div className="space-y-4">
         <JournalEntry />
+        <RecentPracticeEntries />
         <WeeklyProgress refreshKey={weeklyRefreshKey} />
       </div>
     </section>

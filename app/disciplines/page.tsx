@@ -3,30 +3,37 @@ import Link from "next/link";
 const disciplines = [
   {
     name: "Prayer",
+    slug: "prayer",
     note: "Prayer is regular conversation with God. In Modern Monk, it starts small: a few honest minutes of attention, asking, listening, confession, and trust."
   },
   {
     name: "Silence",
+    slug: "silence",
     note: "Silence is the practice of becoming still before God without needing to fill the space. It helps the heart slow down enough to notice what is true."
   },
   {
     name: "Solitude",
+    slug: "solitude",
     note: "Solitude is stepping away from noise and performance for a little while. It is not isolation; it is a quiet place to be with God as you are."
   },
   {
     name: "Fasting",
-    note: "Fasting is temporarily setting aside a good thing, often food, to remember that God is our deepest need. For beginners, it can be simple and gentle."
+    slug: "fasting",
+    note: "Fasting is temporarily setting aside food to remember that God is our deepest need. For beginners, it can be simple and gentle."
   },
   {
     name: "Scripture",
+    slug: "scripture",
     note: "Scripture is slow attention to the Bible. The goal is not to rush through chapters, but to receive wisdom, correction, comfort, and formation."
   },
   {
     name: "Sabbath",
+    slug: "sabbath",
     note: "Sabbath is a rhythm of rest and delight. It reminds us we are beloved before we are productive, and that God holds the world while we stop."
   },
   {
     name: "Journaling",
+    slug: "journaling",
     note: "Journaling gives language to the inner life. A short reflection can help you notice grace, name resistance, and remember what God is teaching you."
   }
 ];
@@ -68,6 +75,9 @@ export default function DisciplinesPage() {
                 <div>
                   <h2 className="font-serif text-3xl text-ink">{discipline.name}</h2>
                   <p className="mt-3 leading-7 text-ink/70">{discipline.note}</p>
+                  <Link href={`/disciplines/${discipline.slug}`} className="secondary-button mt-5">
+                    Open practice
+                  </Link>
                 </div>
               </div>
             </article>
