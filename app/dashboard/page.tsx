@@ -14,7 +14,7 @@ export default function DashboardPage() {
               href="/rule-of-life"
               className="rounded-full border border-ink/10 bg-vellum px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-clay transition hover:border-clay/50"
             >
-              Setup
+              Rule of life
             </Link>
             <Link
               href="/login"
@@ -22,9 +22,6 @@ export default function DashboardPage() {
             >
               Account
             </Link>
-            <p className="rounded-full border border-ink/10 bg-vellum px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-clay">
-              Rule of life
-            </p>
           </div>
         </nav>
 
