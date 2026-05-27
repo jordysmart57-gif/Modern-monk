@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", "Avenir Next", "Segoe UI", sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(217, 191, 140, 0.22), transparent 34rem),
+    linear-gradient(180deg, #fbf7ef 0%, #f7f1e7 52%, #efe2ce 100%);
+  color: #2f2a24;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(155, 107, 67, 0.25);
+}
+
+.field-paper {
+  background-image:
+    linear-gradient(rgba(104, 116, 93, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(104, 116, 93, 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.liturgical-rule {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(125, 78, 53, 0.22) 0,
+    rgba(125, 78, 53, 0.22) 1px,
+    transparent 1px,
+    transparent 14px
+  );
+}
+
+@layer components {
+  .page-shell {
+    @apply min-h-screen px-4 py-4 sm:px-6 lg:px-10;
+  }
+
+  .content-shell {
+    @apply mx-auto max-w-6xl;
+  }
+
+  .top-nav {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 pb-4;
+  }
+
+  .soft-card {
+    @apply rounded-2xl border border-ink/10 bg-vellum/90 p-5 shadow-sm sm:p-6;
+  }
+
+  .quiet-card {
+    @apply rounded-2xl border border-ink/10 bg-white/50 p-4;
+  }
+
+  .pill-link {
+    @apply inline-flex min-h-10 items-center justify-center rounded-full border border-ink/15 bg-vellum/80 px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-clay/50 hover:text-ember;
+  }
+
+  .primary-button {
+    @apply inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-vellum transition hover:bg-ember disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .secondary-button {
+    @apply inline-flex min-h-11 items-center justify-center rounded-full border border-ink/15 bg-vellum/70 px-5 py-3 text-sm font-semibold text-ink transition hover:border-moss/50 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .form-field {
+    @apply w-full rounded-2xl border border-ink/10 bg-white/60 px-4 py-3 text-ink outline-none transition placeholder:text-ink/40 focus:border-clay/60 focus:ring-4 focus:ring-clay/10 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .status-note {
+    @apply rounded-2xl border border-ink/10 bg-white/50 p-4 text-sm leading-6 text-ink/60;
+  }
+
+  .error-note {
+    @apply rounded-2xl border border-ember/20 bg-ember/5 p-4 text-sm leading-6 text-ember;
+  }
+
+  .loading-line {
+    @apply animate-pulse rounded-full bg-ink/10;
+  }
+}
