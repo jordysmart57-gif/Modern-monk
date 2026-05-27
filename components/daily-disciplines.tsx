@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { defaultDailyRhythm } from "@/src/lib/ruleOfLife";
+import { defaultDailyRhythm, disciplineGuidance } from "@/src/lib/ruleOfLife";
 import { supabase } from "@/src/lib/supabaseClient";
 
 type DisciplineRow = {
@@ -31,6 +31,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [savedRows, setSavedRows] = useState<Record<string, DisciplineRow>>({});
   const [dailyDisciplines, setDailyDisciplines] = useState(defaultDailyRhythm);
+  const [selectedDiscipline, setSelectedDiscipline] = useState(defaultDailyRhythm[0]);
   const [user, setUser] = useState<User | null>(null);
   const [statusMessage, setStatusMessage] = useState("Loading today's disciplines...");
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
@@ -41,6 +42,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
     [checkedItems]
   );
   const completionPercent = Math.round((completedCount / dailyDisciplines.length) * 100);
+  const selectedGuidance = disciplineGuidance[selectedDiscipline] ?? disciplineGuidance[defaultDailyRhythm[0]];
 
   useEffect(() => {
     async function loadTodayDisciplines() {
@@ -84,6 +86,9 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         : defaultDailyRhythm;
 
       setDailyDisciplines(chosenDisciplines);
+      setSelectedDiscipline((current) =>
+        chosenDisciplines.includes(current) ? current : chosenDisciplines[0]
+      );
 
       // Then we load only this user's rows for today's date.
       const { data, error } = await supabase
@@ -207,35 +212,85 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
             ))
           : dailyDisciplines.map((discipline) => {
           const isChecked = checkedItems[discipline] ?? false;
+          const isSelected = selectedDiscipline === discipline;
 
           return (
-            <label
+            <div
               key={discipline}
-              className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+              className={`flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 transition ${
                 isChecked
                   ? "border-moss/25 bg-moss/10 text-ink"
-                  : "border-ink/10 bg-white/50 text-ink/70 hover:border-clay/30"
+                  : isSelected
+                    ? "border-clay/30 bg-parchment text-ink"
+                    : "border-ink/10 bg-white/50 text-ink/70 hover:border-clay/30"
               }`}
             >
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => toggleDiscipline(discipline)}
-                disabled={isLoading || !user}
-                className="h-5 w-5 rounded border-ink/20 accent-clay"
-              />
-              <span className={isChecked ? "font-medium line-through decoration-clay/60" : ""}>
-                {discipline}
-              </span>
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggleDiscipline(discipline)}
+                  disabled={isLoading || !user}
+                  className="h-5 w-5 shrink-0 rounded border-ink/20 accent-clay"
+                />
+                <span className={isChecked ? "font-medium line-through decoration-clay/60" : ""}>
+                  {discipline}
+                </span>
+              </label>
               {isChecked ? (
-                <span className="ml-auto rounded-full bg-moss/15 px-2 py-1 text-xs font-semibold text-moss">
+                <span className="hidden rounded-full bg-moss/15 px-2 py-1 text-xs font-semibold text-moss sm:inline-flex">
                   Complete
                 </span>
               ) : null}
-            </label>
+              <button
+                type="button"
+                onClick={() => setSelectedDiscipline(discipline)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  isSelected
+                    ? "border-clay/40 bg-clay text-vellum"
+                    : "border-ink/10 bg-vellum/70 text-ink/60 hover:border-clay/40 hover:text-ink"
+                }`}
+              >
+                Guide
+              </button>
+            </div>
           );
         })}
       </div>
+
+      {!isLoading ? (
+        <div className="mt-5 rounded-2xl border border-clay/15 bg-parchment/70 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Direction</p>
+              <h3 className="mt-1 font-serif text-2xl text-ink">{selectedDiscipline}</h3>
+            </div>
+            <Link href="/rule-of-life" className="text-xs font-semibold text-ember underline decoration-clay/40 underline-offset-4">
+              Edit rhythm
+            </Link>
+          </div>
+
+          <p className="mt-3 text-sm leading-6 text-ink/70">{selectedGuidance.description}</p>
+          <p className="mt-3 text-sm leading-6 text-ink/70">
+            <span className="font-semibold text-ink">Try this today: </span>
+            {selectedGuidance.practice}
+          </p>
+
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">Recommended Scripture</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {selectedGuidance.scriptures.map((scripture) => (
+                <span
+                  key={scripture}
+                  className="rounded-full border border-moss/15 bg-moss/10 px-3 py-1 text-xs font-semibold text-moss"
+                >
+                  {scripture}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div
         className={`mt-4 rounded-2xl px-4 py-3 text-xs leading-5 ${
