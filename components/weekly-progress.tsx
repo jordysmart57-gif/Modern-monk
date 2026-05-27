@@ -76,7 +76,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
         .maybeSingle();
 
       if (preferencesError) {
-        setStatusMessage(preferencesError.message);
+        setStatusMessage("Could not load your selected rhythm. Please refresh and try again.");
         setIsLoading(false);
         return;
       }
@@ -96,7 +96,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
         .lte("completed_date", weekDays[weekDays.length - 1].date);
 
       if (error) {
-        setStatusMessage(error.message);
+        setStatusMessage("Could not load weekly progress. Please refresh and try again.");
         setIsLoading(false);
         return;
       }

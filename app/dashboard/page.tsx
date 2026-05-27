@@ -30,16 +30,12 @@ export default function DashboardPage() {
 
         <section className="py-7 sm:py-9">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-moss">Daily office</p>
-          <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <div className="mt-3 max-w-3xl">
             <div>
               <h1 className="font-serif text-4xl leading-[1.05] text-ink sm:text-5xl">Today&apos;s disciplines</h1>
               <p className="mt-3 max-w-2xl leading-7 text-ink/70">
                 Begin small. Mark what you practice, sit in silence, and write one honest note from the day.
               </p>
-            </div>
-            <div className="soft-card px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Streak</p>
-              <p className="mt-1 font-serif text-3xl text-ink">4 days</p>
             </div>
           </div>
         </section>

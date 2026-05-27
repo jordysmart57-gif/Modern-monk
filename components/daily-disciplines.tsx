@@ -97,7 +97,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         .maybeSingle();
 
       if (preferencesError) {
-        setStatusMessage(preferencesError.message);
+        setStatusMessage("Could not load your rule of life yet. Please refresh and try again.");
         setStatusTone("error");
         setIsLoading(false);
         return;
@@ -120,7 +120,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         .eq("completed_date", getTodayDate());
 
       if (error) {
-        setStatusMessage(error.message);
+        setStatusMessage("Could not load today's disciplines. Please refresh and try again.");
         setStatusTone("error");
         setIsLoading(false);
         return;
@@ -153,7 +153,8 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
       return;
     }
 
-    const nextCompleted = !checkedItems[discipline];
+    const previousCompleted = checkedItems[discipline] ?? false;
+    const nextCompleted = !previousCompleted;
 
     // setCheckedItems asks React to update the screen with the new checked value.
     // We update immediately so the app feels fast, then save the same change to Supabase.
@@ -173,7 +174,11 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         .eq("id", existingRow.id);
 
       if (error) {
-        setStatusMessage(error.message);
+        setCheckedItems((currentItems) => ({
+          ...currentItems,
+          [discipline]: previousCompleted
+        }));
+        setStatusMessage("Could not save that discipline. Please try again.");
         setStatusTone("error");
         return;
       }
@@ -190,7 +195,11 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         .single();
 
       if (error) {
-        setStatusMessage(error.message);
+        setCheckedItems((currentItems) => ({
+          ...currentItems,
+          [discipline]: previousCompleted
+        }));
+        setStatusMessage("Could not save that discipline. Please try again.");
         setStatusTone("error");
         return;
       }

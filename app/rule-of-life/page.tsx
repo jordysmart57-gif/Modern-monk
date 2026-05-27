@@ -45,7 +45,7 @@ export default function RuleOfLifePage() {
         .maybeSingle();
 
       if (error) {
-        setStatusMessage(error.message);
+        setStatusMessage("Could not load your rule of life. Please refresh and try again.");
         setStatusTone("error");
         setIsLoading(false);
         return;
@@ -100,7 +100,7 @@ export default function RuleOfLifePage() {
     setIsSaving(false);
 
     if (error) {
-      setStatusMessage(error.message);
+      setStatusMessage("Could not save your rule of life. Please try again.");
       setStatusTone("error");
       return;
     }

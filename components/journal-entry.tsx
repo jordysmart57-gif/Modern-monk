@@ -67,7 +67,7 @@ export default function JournalEntry() {
         .maybeSingle();
 
       if (todayError) {
-        setErrorMessage(todayError.message);
+        setErrorMessage("Could not load today's reflection. Please refresh and try again.");
         setNoticeTone("error");
         setIsLoading(false);
         return;
@@ -103,7 +103,7 @@ export default function JournalEntry() {
       .limit(5);
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage("Could not load past reflections. Please refresh and try again.");
       setNoticeTone("error");
       return;
     }
@@ -141,7 +141,7 @@ export default function JournalEntry() {
       setIsSaving(false);
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage("Could not save your reflection. Please try again.");
         setNoticeTone("error");
         return;
       }
@@ -160,7 +160,7 @@ export default function JournalEntry() {
       setIsSaving(false);
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage("Could not save your reflection. Please try again.");
         setNoticeTone("error");
         return;
       }

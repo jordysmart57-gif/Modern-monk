@@ -26,6 +26,15 @@ alter table disciplines enable row level security;
 alter table journal_entries enable row level security;
 alter table rule_of_life_preferences enable row level security;
 
+create index if not exists disciplines_user_date_idx
+on disciplines (user_id, completed_date);
+
+create unique index if not exists disciplines_user_date_name_unique_idx
+on disciplines (user_id, completed_date, name);
+
+create unique index if not exists journal_entries_user_date_unique_idx
+on journal_entries (user_id, entry_date);
+
 drop policy if exists "Users can read their own disciplines" on disciplines;
 create policy "Users can read their own disciplines"
 on disciplines for select
