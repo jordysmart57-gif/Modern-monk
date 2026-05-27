@@ -124,3 +124,49 @@ export async function loadRecentPracticeEntries(limit = 5) {
     error: null
   };
 }
+
+export async function loadPracticeEntriesByDiscipline(discipline: PracticeDiscipline, sinceDate?: string) {
+  if (!supabase) {
+    return {
+      entries: [],
+      error: "Supabase is not configured yet."
+    };
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      entries: [],
+      error: "Log in to see saved noticings."
+    };
+  }
+
+  let query = supabase
+    .from("practice_entries")
+    .select("id, user_id, discipline, entry_date, notes, created_at")
+    .eq("user_id", user.id)
+    .eq("discipline", discipline)
+    .order("entry_date", { ascending: false });
+
+  if (sinceDate) {
+    query = query.gte("entry_date", sinceDate);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return {
+      entries: [],
+      error: "Could not load saved noticings."
+    };
+  }
+
+  return {
+    entries: (data ?? []) as PracticeEntry[],
+    error: null
+  };
+}

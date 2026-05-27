@@ -1,7 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import BreathPrayer from "@/components/practices/BreathPrayer";
+import Examen from "@/components/practices/Examen";
+import FastTimer from "@/components/practices/FastTimer";
+import LectioDivina from "@/components/practices/LectioDivina";
 import PracticeShell from "@/components/practices/PracticeShell";
+import SabbathFrame from "@/components/practices/SabbathFrame";
 import SilenceTimerPractice from "@/components/practices/SilenceTimerPractice";
+import StepAway from "@/components/practices/StepAway";
 import type { PracticeDiscipline } from "@/src/lib/practiceEntries";
 
 const practicePages: Record<
@@ -61,21 +66,13 @@ export default async function DisciplinePracticePage({ params }: DisciplinePract
 
   return (
     <PracticeShell discipline={practice.discipline} description={practice.description}>
-      {practice.discipline === "Silence" ? (
-        <SilenceTimerPractice />
-      ) : (
-        <div className="soft-card max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-clay">Coming next</p>
-          <h2 className="mt-3 font-serif text-3xl text-ink">{practice.discipline} practice</h2>
-          <p className="mt-3 leading-7 text-ink/70">
-            This page is wired into the new practice pattern. We are using Silence first as the reference,
-            then we will build this interaction with the same quiet saving flow.
-          </p>
-          <Link href="/disciplines/silence" className="secondary-button mt-5">
-            View Silence reference
-          </Link>
-        </div>
-      )}
+      {practice.discipline === "Prayer" ? <BreathPrayer /> : null}
+      {practice.discipline === "Silence" ? <SilenceTimerPractice /> : null}
+      {practice.discipline === "Solitude" ? <StepAway /> : null}
+      {practice.discipline === "Fasting" ? <FastTimer /> : null}
+      {practice.discipline === "Scripture" ? <LectioDivina /> : null}
+      {practice.discipline === "Sabbath" ? <SabbathFrame /> : null}
+      {practice.discipline === "Journaling" ? <Examen /> : null}
     </PracticeShell>
   );
 }

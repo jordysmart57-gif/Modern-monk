@@ -51,6 +51,19 @@ input {
   );
 }
 
+@keyframes breath-prayer {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.72;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @layer components {
   .page-shell {
     @apply min-h-screen px-4 py-4 sm:px-6 lg:px-10;
@@ -98,5 +111,9 @@ input {
 
   .loading-line {
     @apply animate-pulse rounded-full bg-ink/10;
+  }
+
+  .animate-breath-prayer {
+    animation: breath-prayer 10s ease-in-out infinite;
   }
 }
