@@ -9,6 +9,16 @@ export type PracticeDiscipline =
   | "Sabbath"
   | "Journaling";
 
+export const practiceDisciplines = [
+  "Prayer",
+  "Silence",
+  "Solitude",
+  "Fasting",
+  "Scripture",
+  "Sabbath",
+  "Journaling"
+] as const;
+
 export type PracticeEntry = {
   id: string;
   user_id: string;
@@ -22,6 +32,10 @@ export type SavePracticeEntryInput = {
   discipline: PracticeDiscipline;
   notes: string;
 };
+
+export function isPracticeDiscipline(discipline: string): discipline is PracticeDiscipline {
+  return practiceDisciplines.includes(discipline as PracticeDiscipline);
+}
 
 export function getLocalEntryDate() {
   const today = new Date();
@@ -111,6 +125,48 @@ export async function loadRecentPracticeEntries(limit = 5) {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (error) {
+    return {
+      entries: [],
+      error: "Could not load saved noticings."
+    };
+  }
+
+  return {
+    entries: (data ?? []) as PracticeEntry[],
+    error: null
+  };
+}
+
+export async function loadPracticeEntriesByDateRange(startDate: string, endDate: string) {
+  if (!supabase) {
+    return {
+      entries: [],
+      error: "Supabase is not configured yet."
+    };
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      entries: [],
+      error: "Log in to see saved noticings."
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("practice_entries")
+    .select("id, user_id, discipline, entry_date, notes, created_at")
+    .eq("user_id", user.id)
+    .gte("entry_date", startDate)
+    .lte("entry_date", endDate)
+    .order("entry_date", { ascending: false })
+    .order("created_at", { ascending: false });
 
   if (error) {
     return {

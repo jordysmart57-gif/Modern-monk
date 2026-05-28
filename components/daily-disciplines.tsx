@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import {
   defaultDailyRhythm,
   disciplineGuidance,
@@ -13,26 +12,13 @@ import {
   scriptureStudySuggestions,
   type RuleOfLifePractice
 } from "@/src/lib/ruleOfLife";
+import {
+  getLocalEntryDate,
+  isPracticeDiscipline,
+  loadPracticeEntriesByDateRange,
+  type PracticeEntry
+} from "@/src/lib/practiceEntries";
 import { supabase } from "@/src/lib/supabaseClient";
-
-type DisciplineRow = {
-  id: string;
-  name: string;
-  completed: boolean;
-};
-
-function getTodayDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-type DailyDisciplinesProps = {
-  onSaved?: () => void;
-};
 
 const practicePageSlugs: Record<string, string> = {
   Prayer: "prayer",
@@ -44,27 +30,35 @@ const practicePageSlugs: Record<string, string> = {
   Journaling: "journaling"
 };
 
-export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
-  // React state is memory for this component while the page is open.
-  // Here it remembers which disciplines are checked for today.
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
-  const [savedRows, setSavedRows] = useState<Record<string, DisciplineRow>>({});
-  const [dailyPractices, setDailyPractices] = useState<RuleOfLifePractice[]>([]);
+function rhythmLabel(practice: RuleOfLifePractice) {
+  if (practice.frequency === "daily" || practice.frequency === "seasonal") {
+    return frequencyLabels[practice.frequency];
+  }
+
+  return `${frequencyLabels[practice.frequency]}${
+    practice.days.length > 0 ? ` on ${practice.days.join(", ")}` : ""
+  }`;
+}
+
+export default function DailyDisciplines() {
+  const [todayPractices, setTodayPractices] = useState<RuleOfLifePractice[]>([]);
   const [upcomingPractices, setUpcomingPractices] = useState<RuleOfLifePractice[]>([]);
+  const [todayEntries, setTodayEntries] = useState<PracticeEntry[]>([]);
   const [selectedDiscipline, setSelectedDiscipline] = useState(defaultDailyRhythm[0]);
   const [scriptureSuggestion, setScriptureSuggestion] = useState(scriptureStudySuggestions[0]);
-  const [user, setUser] = useState<User | null>(null);
-  const [statusMessage, setStatusMessage] = useState("Loading today's disciplines...");
+  const [statusMessage, setStatusMessage] = useState("Loading today's rhythm...");
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
   const [isLoading, setIsLoading] = useState(true);
 
-  const completedCount = useMemo(
-    () => Object.values(checkedItems).filter(Boolean).length,
-    [checkedItems]
+  const noticedDisciplines = useMemo(
+    () => new Set(todayEntries.map((entry) => entry.discipline)),
+    [todayEntries]
   );
+  const noticedCount = todayPractices.filter(
+    (practice) => isPracticeDiscipline(practice.discipline) && noticedDisciplines.has(practice.discipline)
+  ).length;
   const selectedGuidance = disciplineGuidance[selectedDiscipline] ?? disciplineGuidance[defaultDailyRhythm[0]];
-  const visiblePractices = dailyPractices.length > 0 ? dailyPractices : [];
-  const selectedPractice = dailyPractices.find((practice) => practice.discipline === selectedDiscipline);
+  const selectedPractice = todayPractices.find((practice) => practice.discipline === selectedDiscipline);
 
   useEffect(() => {
     function chooseHourlyScripture() {
@@ -74,43 +68,37 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
       setScriptureSuggestion(scriptureStudySuggestions[suggestionIndex]);
     }
 
-    // useEffect runs code after React draws the page.
-    // This one chooses a Scripture suggestion from the current hour, then checks again each minute.
     chooseHourlyScripture();
     const timerId = window.setInterval(chooseHourlyScripture, 60 * 1000);
 
-    // Returning a cleanup function keeps the interval from running after this component leaves the screen.
     return () => window.clearInterval(timerId);
   }, []);
 
   useEffect(() => {
-    async function loadTodayDisciplines() {
+    async function loadTodaysRhythm() {
       if (!supabase) {
-        setStatusMessage("Add Supabase keys before saving your rhythm.");
+        setStatusMessage("Add Supabase keys before loading your rhythm.");
         setStatusTone("error");
         setIsLoading(false);
         return;
       }
 
-      // First we ask Supabase which user is logged in on this browser.
       const {
-        data: { user: currentUser },
+        data: { user },
         error: userError
       } = await supabase.auth.getUser();
 
-      if (userError || !currentUser) {
-        setStatusMessage("Log in to save today's rhythm.");
+      if (userError || !user) {
+        setStatusMessage("Log in to see today's rhythm.");
         setStatusTone("neutral");
         setIsLoading(false);
         return;
       }
 
-      setUser(currentUser);
-
       const { data: preferences, error: preferencesError } = await supabase
         .from("rule_of_life_preferences")
         .select("disciplines, practices")
-        .eq("user_id", currentUser.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (preferencesError) {
@@ -121,121 +109,36 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
       }
 
       const rulePractices = normalizeRuleOfLifePractices(preferences?.practices, preferences?.disciplines);
-      const todaysPractices = getTodaysRulePractices(rulePractices);
+      const todaysRulePractices = getTodaysRulePractices(rulePractices);
       const practicesForToday =
-        todaysPractices.length > 0
-          ? todaysPractices
+        todaysRulePractices.length > 0
+          ? todaysRulePractices
           : rulePractices.filter((practice) => practice.frequency === "daily");
-      const chosenDisciplines = practicesForToday.map((practice) => practice.discipline);
+      const today = getLocalEntryDate();
+      const { entries, error: entriesError } = await loadPracticeEntriesByDateRange(today, today);
 
-      setDailyPractices(practicesForToday);
-      setUpcomingPractices(getUpcomingRulePractices(rulePractices));
-      setSelectedDiscipline((current) =>
-        chosenDisciplines.includes(current) ? current : chosenDisciplines[0] ?? defaultDailyRhythm[0]
-      );
-
-      // Then we load only this user's rows for today's date.
-      const { data, error } = await supabase
-        .from("disciplines")
-        .select("id, name, completed")
-        .eq("user_id", currentUser.id)
-        .eq("completed_date", getTodayDate());
-
-      if (error) {
-        setStatusMessage("Could not load today's rhythm. Please refresh and try again.");
+      if (entriesError && !entriesError.includes("Log in")) {
+        setStatusMessage(entriesError);
         setStatusTone("error");
         setIsLoading(false);
         return;
       }
 
-      const nextCheckedItems: Record<string, boolean> = {};
-      const nextSavedRows: Record<string, DisciplineRow> = {};
+      setTodayPractices(practicesForToday);
+      setUpcomingPractices(getUpcomingRulePractices(rulePractices));
+      setTodayEntries(entries);
+      setSelectedDiscipline((current) => {
+        const todayDisciplines = practicesForToday.map((practice) => practice.discipline);
 
-      for (const row of data ?? []) {
-        if (chosenDisciplines.includes(row.name)) {
-          nextCheckedItems[row.name] = row.completed;
-          nextSavedRows[row.name] = row;
-        }
-      }
-
-      setCheckedItems(nextCheckedItems);
-      setSavedRows(nextSavedRows);
+        return todayDisciplines.includes(current) ? current : todayDisciplines[0] ?? defaultDailyRhythm[0];
+      });
       setStatusMessage("Today's rhythm loaded.");
       setStatusTone("success");
       setIsLoading(false);
     }
 
-    loadTodayDisciplines();
+    loadTodaysRhythm();
   }, []);
-
-  async function toggleDiscipline(discipline: string) {
-    if (!supabase || !user) {
-      setStatusMessage("Log in to save today's rhythm.");
-      setStatusTone("neutral");
-      return;
-    }
-
-    const previousCompleted = checkedItems[discipline] ?? false;
-    const nextCompleted = !previousCompleted;
-
-    // setCheckedItems asks React to update the screen with the new checked value.
-    // We update immediately so the app feels fast, then save the same change to Supabase.
-    setCheckedItems((currentItems) => ({
-      ...currentItems,
-      [discipline]: nextCompleted
-    }));
-    setStatusMessage("Saving...");
-    setStatusTone("neutral");
-
-    const existingRow = savedRows[discipline];
-
-    if (existingRow) {
-      const { error } = await supabase
-        .from("disciplines")
-        .update({ completed: nextCompleted })
-        .eq("id", existingRow.id);
-
-      if (error) {
-        setCheckedItems((currentItems) => ({
-          ...currentItems,
-          [discipline]: previousCompleted
-        }));
-        setStatusMessage("Could not save that practice. Please try again.");
-        setStatusTone("error");
-        return;
-      }
-    } else {
-      const { data, error } = await supabase
-        .from("disciplines")
-        .insert({
-          user_id: user.id,
-          name: discipline,
-          completed: nextCompleted,
-          completed_date: getTodayDate()
-        })
-        .select("id, name, completed")
-        .single();
-
-      if (error) {
-        setCheckedItems((currentItems) => ({
-          ...currentItems,
-          [discipline]: previousCompleted
-        }));
-        setStatusMessage("Could not save that practice. Please try again.");
-        setStatusTone("error");
-        return;
-      }
-
-      setSavedRows((currentRows) => ({
-        ...currentRows,
-        [discipline]: data
-      }));
-    }
-
-    setStatusMessage("Saved.");
-    setStatusTone("success");
-    onSaved?.();
-  }
 
   return (
     <div className="soft-card">
@@ -243,7 +146,7 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         <div>
           <h2 className="font-serif text-3xl text-ink">Today&apos;s rhythm</h2>
           <p className="mt-1 text-sm text-ink/60">
-            {isLoading ? "Loading..." : `${completedCount} practiced today`}
+            {isLoading ? "Loading..." : `${noticedCount} noticings saved today`}
           </p>
         </div>
         {isLoading ? (
@@ -263,70 +166,75 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
                 <span className="loading-line h-4 w-2/3" />
               </div>
             ))
-          : visiblePractices.map((practice) => {
-          const discipline = practice.discipline;
-          const isChecked = checkedItems[discipline] ?? false;
-          const isSelected = selectedDiscipline === discipline;
+          : todayPractices.map((practice) => {
+              const noticedToday =
+                isPracticeDiscipline(practice.discipline) && noticedDisciplines.has(practice.discipline);
+              const isSelected = selectedDiscipline === practice.discipline;
+              const slug = practicePageSlugs[practice.discipline];
 
-          return (
-            <div
-              key={discipline}
-              className={`flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 transition ${
-                isChecked
-                  ? "border-moss/25 bg-moss/10 text-ink"
-                  : isSelected
-                    ? "border-clay/30 bg-parchment text-ink"
-                    : "border-ink/10 bg-white/50 text-ink/70 hover:border-clay/30"
-              }`}
-            >
-              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => toggleDiscipline(discipline)}
-                  disabled={isLoading || !user}
-                  className="h-5 w-5 shrink-0 rounded border-ink/20 accent-clay"
-                />
-                <span className={isChecked ? "font-medium text-moss" : ""}>
-                  {discipline}
-                </span>
-              </label>
-              {isChecked ? (
-                <span className="hidden rounded-full bg-moss/15 px-2 py-1 text-xs font-semibold text-moss sm:inline-flex">
-                  Practiced
-                </span>
-              ) : null}
-              {practicePageSlugs[discipline] ? (
-                <Link
-                  href={`/disciplines/${practicePageSlugs[discipline]}`}
-                  className="hidden rounded-full border border-ink/10 bg-vellum/70 px-3 py-1.5 text-xs font-semibold text-ink/60 transition hover:border-clay/40 hover:text-ink sm:inline-flex"
+              return (
+                <article
+                  key={practice.discipline}
+                  className={`rounded-2xl border px-4 py-4 transition ${
+                    noticedToday
+                      ? "border-moss/25 bg-moss/10 text-ink"
+                      : isSelected
+                        ? "border-clay/30 bg-parchment text-ink"
+                        : "border-ink/10 bg-white/50 text-ink/75 hover:border-clay/30"
+                  }`}
                 >
-                  Open
-                </Link>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setSelectedDiscipline(discipline)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  isSelected
-                    ? "border-clay/40 bg-clay text-vellum"
-                    : "border-ink/10 bg-vellum/70 text-ink/60 hover:border-clay/40 hover:text-ink"
-                }`}
-              >
-                Guide
-              </button>
-            </div>
-          );
-        })}
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDiscipline(practice.discipline)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="font-serif text-2xl text-ink">{practice.discipline}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-clay">
+                        {rhythmLabel(practice)}
+                      </p>
+                    </button>
+                    {noticedToday ? (
+                      <span className="rounded-full bg-moss/15 px-2 py-1 text-xs font-semibold text-moss">
+                        Noticed today
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {practice.intention ? (
+                    <p className="mt-3 text-sm leading-6 text-ink/65">{practice.intention}</p>
+                  ) : null}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {slug ? (
+                      <Link href={`/disciplines/${slug}`} className="primary-button min-h-10 px-4 py-2 text-xs">
+                        Open practice
+                      </Link>
+                    ) : (
+                      <span className="rounded-full border border-ink/10 bg-vellum/70 px-3 py-2 text-xs font-semibold text-ink/55">
+                        Guided page coming later
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDiscipline(practice.discipline)}
+                      className="secondary-button min-h-10 px-4 py-2 text-xs"
+                    >
+                      Direction
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
       </div>
 
-      {!isLoading && visiblePractices.length === 0 ? (
+      {!isLoading && todayPractices.length === 0 ? (
         <p className="status-note mt-5">
           Nothing is assigned to today. This can be a spacious day, or you can adjust your rule of life.
         </p>
       ) : null}
 
-      {!isLoading && visiblePractices.length > 0 ? (
+      {!isLoading && todayPractices.length > 0 ? (
         <div className="mt-5 rounded-2xl border border-clay/15 bg-parchment/70 p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -367,21 +275,32 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
         </div>
       ) : null}
 
+      {!isLoading && todayEntries.length > 0 ? (
+        <div className="mt-5 rounded-2xl border border-ink/10 bg-white/40 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Noticed today</p>
+          <div className="mt-3 space-y-2">
+            {todayEntries.slice(0, 3).map((entry) => (
+              <article key={entry.id} className="rounded-2xl bg-vellum/70 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-moss">{entry.discipline}</p>
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-ink/65">{entry.notes}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {!isLoading && upcomingPractices.length > 0 ? (
         <div className="mt-5 rounded-2xl border border-ink/10 bg-white/40 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Later in this rhythm</p>
           <div className="mt-3 space-y-2">
             {upcomingPractices.slice(0, 4).map((practice) => (
-              <div key={`${practice.discipline}-${practice.frequency}`} className="flex items-start justify-between gap-3 rounded-2xl bg-vellum/70 px-4 py-3">
+              <div
+                key={`${practice.discipline}-${practice.frequency}`}
+                className="flex items-start justify-between gap-3 rounded-2xl bg-vellum/70 px-4 py-3"
+              >
                 <div>
                   <p className="font-semibold text-ink">{practice.discipline}</p>
-                  <p className="mt-1 text-xs leading-5 text-ink/55">
-                    {practice.frequency === "seasonal"
-                      ? "Seasonal"
-                      : `${frequencyLabels[practice.frequency]}${
-                          practice.days.length > 0 ? ` on ${practice.days.join(", ")}` : ""
-                        }`}
-                  </p>
+                  <p className="mt-1 text-xs leading-5 text-ink/55">{rhythmLabel(practice)}</p>
                 </div>
                 {practicePageSlugs[practice.discipline] ? (
                   <Link
@@ -406,15 +325,15 @@ export default function DailyDisciplines({ onSaved }: DailyDisciplinesProps) {
               : "border border-ink/10 bg-white/40 text-ink/50"
         }`}
       >
-        {user ? (
-          <span>{statusMessage}</span>
-        ) : (
+        {statusMessage.includes("Log in") ? (
           <span>
             {statusMessage}{" "}
             <Link href="/login" className="font-semibold text-ember underline decoration-clay/40 underline-offset-4">
               Go to login
             </Link>
           </span>
+        ) : (
+          <span>{statusMessage}</span>
         )}
       </div>
     </div>

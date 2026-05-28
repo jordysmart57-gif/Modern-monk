@@ -4,18 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   getTodaysRulePractices,
-  normalizeRuleOfLifePractices
+  normalizeRuleOfLifePractices,
+  type RuleOfLifePractice
 } from "@/src/lib/ruleOfLife";
+import {
+  loadPracticeEntriesByDateRange,
+  type PracticeEntry
+} from "@/src/lib/practiceEntries";
 import { supabase } from "@/src/lib/supabaseClient";
-
-type WeeklyProgressProps = {
-  refreshKey: number;
-};
-
-type DisciplineProgressRow = {
-  completed: boolean;
-  completed_date: string;
-};
 
 function formatDate(date: Date) {
   const year = date.getFullYear();
@@ -39,25 +35,32 @@ function getWeekDays() {
   });
 }
 
-export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
+function shortNote(note: string) {
+  return note
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean) ?? note;
+}
+
+export default function WeeklyProgress() {
   const weekDays = useMemo(() => getWeekDays(), []);
-  const [completedByDate, setCompletedByDate] = useState<Record<string, number>>({});
+  const [entries, setEntries] = useState<PracticeEntry[]>([]);
   const [scheduledByDate, setScheduledByDate] = useState<Record<string, number>>({});
-  const [statusMessage, setStatusMessage] = useState("Loading this week's rhythm...");
+  const [rulePractices, setRulePractices] = useState<RuleOfLifePractice[]>([]);
+  const [statusMessage, setStatusMessage] = useState("Loading this week's review...");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    async function loadWeeklyProgress() {
+    async function loadWeeklyReview() {
       if (!supabase) {
-        setStatusMessage("Add Supabase keys before loading this week's rhythm.");
+        setStatusMessage("Add Supabase keys before loading this week's review.");
         setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
 
-      // Supabase tells us who is logged in. We use that id to load only this user's rows.
       const {
         data: { user },
         error: userError
@@ -65,7 +68,7 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
 
       if (userError || !user) {
         setIsLoggedIn(false);
-        setStatusMessage("Log in to see this week's rhythm.");
+        setStatusMessage("Log in to see this week's review.");
         setIsLoading(false);
         return;
       }
@@ -85,8 +88,19 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
       }
 
       const chosenPractices = normalizeRuleOfLifePractices(preferences?.practices, preferences?.disciplines);
-      const chosenDisciplines = chosenPractices.map((practice) => practice.discipline);
+      const { entries: weekEntries, error: entriesError } = await loadPracticeEntriesByDateRange(
+        weekDays[0].date,
+        weekDays[weekDays.length - 1].date
+      );
 
+      if (entriesError && !entriesError.includes("Log in")) {
+        setStatusMessage(entriesError);
+        setIsLoading(false);
+        return;
+      }
+
+      setRulePractices(chosenPractices);
+      setEntries(weekEntries);
       setScheduledByDate(
         Object.fromEntries(
           weekDays.map((day) => [
@@ -95,82 +109,100 @@ export default function WeeklyProgress({ refreshKey }: WeeklyProgressProps) {
           ])
         )
       );
-
-      // This asks Supabase for all saved discipline rows from the last 7 days.
-      const { data, error } = await supabase
-        .from("disciplines")
-        .select("name, completed, completed_date")
-        .eq("user_id", user.id)
-        .gte("completed_date", weekDays[0].date)
-        .lte("completed_date", weekDays[weekDays.length - 1].date);
-
-      if (error) {
-        setStatusMessage("Could not load this week's rhythm. Please refresh and try again.");
-        setIsLoading(false);
-        return;
-      }
-
-      const nextCompletedByDate: Record<string, number> = {};
-
-      for (const row of (data ?? []) as Array<DisciplineProgressRow & { name: string }>) {
-        if (row.completed && chosenDisciplines.includes(row.name)) {
-          nextCompletedByDate[row.completed_date] = (nextCompletedByDate[row.completed_date] ?? 0) + 1;
-        }
-      }
-
-      setCompletedByDate(nextCompletedByDate);
-      setStatusMessage("This week's rhythm loaded.");
+      setStatusMessage("This week's review loaded.");
       setIsLoading(false);
     }
 
-    loadWeeklyProgress();
-  }, [refreshKey, weekDays]);
+    loadWeeklyReview();
+  }, [weekDays]);
 
-  const weeklyPracticed = weekDays.reduce((total, day) => total + (completedByDate[day.date] ?? 0), 0);
+  const entriesByDate = useMemo(() => {
+    return entries.reduce<Record<string, PracticeEntry[]>>((groupedEntries, entry) => {
+      groupedEntries[entry.entry_date] = [...(groupedEntries[entry.entry_date] ?? []), entry];
+      return groupedEntries;
+    }, {});
+  }, [entries]);
+
+  const disciplinesNoticed = Array.from(new Set(entries.map((entry) => entry.discipline)));
+  const recentEntries = entries.slice(0, 4);
 
   return (
     <div className="soft-card">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl text-ink">This week&apos;s rhythm</h2>
+          <h2 className="font-serif text-3xl text-ink">This week&apos;s review</h2>
           <p className="mt-1 text-sm text-ink/60">
-            {isLoading ? "Loading your rhythm..." : "A quiet look at what appeared this week."}
+            {isLoading ? "Loading your rhythm..." : "A quiet look at the noticings you saved."}
           </p>
         </div>
         {isLoading ? (
           <span className="loading-line h-7 w-16" />
         ) : (
           <p className="rounded-full bg-moss/10 px-3 py-1 text-xs font-semibold text-moss">
-            {weeklyPracticed} noted
+            {entries.length} noticings
           </p>
         )}
       </div>
 
-      <div className="mt-6 flex h-40 items-end gap-2">
+      <div className="mt-6 grid grid-cols-7 gap-2">
         {weekDays.map((day) => {
-          const completed = completedByDate[day.date] ?? 0;
+          const dayEntries = entriesByDate[day.date] ?? [];
           const scheduled = scheduledByDate[day.date] ?? 0;
-          const height = isLoading ? 18 : Math.min(100, Math.max(8, (completed / Math.max(scheduled, 1)) * 100));
 
           return (
-            <div key={day.date} className="flex flex-1 flex-col items-center gap-2">
-              <div className="flex h-28 w-full items-end rounded-full bg-parchment">
-                <div
-                  className={`w-full rounded-full transition-all ${isLoading ? "loading-line" : "bg-clay"}`}
-                  style={{ height: `${height}%` }}
-                  aria-label={`${day.label}: ${completed} practices noticed`}
-                />
-              </div>
-              <span className="text-xs font-semibold text-ink/50">{day.label}</span>
-              <span className="text-[11px] text-ink/40">{scheduled}</span>
+            <div key={day.date} className="rounded-2xl border border-ink/10 bg-parchment px-2 py-3 text-center">
+              <p className="text-xs font-semibold text-ink/50">{day.label}</p>
+              <p className="mt-2 font-serif text-2xl text-ink">{dayEntries.length}</p>
+              <p className="mt-1 text-[11px] text-ink/40">{scheduled} invited</p>
             </div>
           );
         })}
       </div>
 
-      <p className="mt-3 text-xs leading-5 text-ink/45">
-        Small numbers under the days show what was invited by your rule of life, not what you owed.
-      </p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="quiet-card">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-clay">Practices noticed</p>
+          <p className="mt-3 leading-7 text-ink/70">
+            {disciplinesNoticed.length > 0 ? disciplinesNoticed.join(", ") : "No saved noticings this week yet."}
+          </p>
+        </div>
+        <div className="quiet-card">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-clay">Rule in this season</p>
+          <p className="mt-3 leading-7 text-ink/70">
+            {rulePractices.length > 0
+              ? `${rulePractices.length} practices held in your current rhythm.`
+              : "Set your rule of life to shape this space."}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Recent noticings</p>
+        <div className="mt-3 space-y-3">
+          {isLoading ? (
+            [0, 1].map((item) => (
+              <div key={item} className="quiet-card space-y-3">
+                <div className="loading-line h-3 w-24" />
+                <div className="loading-line h-4 w-full" />
+                <div className="loading-line h-4 w-2/3" />
+              </div>
+            ))
+          ) : recentEntries.length > 0 ? (
+            recentEntries.map((entry) => (
+              <article key={entry.id} className="quiet-card">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">
+                  {entry.discipline} · {entry.entry_date}
+                </p>
+                <p className="mt-2 line-clamp-4 leading-7 text-ink/70">{shortNote(entry.notes)}</p>
+              </article>
+            ))
+          ) : (
+            <p className="status-note">
+              Open a guided practice and save one sentence about what you noticed. It will gather here.
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="mt-4 rounded-2xl border border-ink/10 bg-white/40 px-4 py-3 text-xs leading-5 text-ink/50">
         {isLoggedIn ? (

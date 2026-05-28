@@ -74,7 +74,7 @@ export default function LandingPage() {
       <section className="px-4 pb-14 sm:px-6 lg:px-10">
         <div className="content-shell grid gap-4 md:grid-cols-3">
           {[
-            ["Daily", "A gentle checklist for faithful repetition."],
+            ["Daily", "A gentle rhythm for faithful repetition."],
             ["Quiet", "A silence timer for stillness before God."],
             ["Reflective", "A journal space for noticing grace."],
           ].map(([title, copy]) => (
